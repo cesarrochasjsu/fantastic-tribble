@@ -9,7 +9,6 @@ CREATE TABLE manga (
   PRIMARY KEY (`manga_id`)
 );
 
-
 create table author
 	(A_ID			INT AUTO_INCREMENT NOT NULL,
 	 a_name			varchar(20) not null, 

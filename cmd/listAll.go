@@ -93,7 +93,7 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Albums found: %v\n", mangas)
+		fmt.Printf("Mangas found: %v\n", mangas)
 	},
 }
 

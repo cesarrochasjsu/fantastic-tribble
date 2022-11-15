@@ -33,6 +33,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var u, pw string
+
 func CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
@@ -55,6 +57,19 @@ func getUserId(user manga.User) (int64, error) {
 	return 0, fmt.Errorf("Wrong password")
 }
 
+// getUserId returns the reviewer id
+func postReview(userID int64, review manga.Review) (int64, error) {
+	result, err := db.Exec("INSERT INTO review (user_id, title, description) VALUES (?, ?, ?)", userID, review.Title, review.Description)
+	if err != nil {
+		return 0, fmt.Errorf("postReview: %v", err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("postReview: %v", err)
+	}
+	return id, nil
+}
+
 // submitReviewCmd represents the submitReview command
 var submitReviewCmd = &cobra.Command{
 	Use:   "submitReview",
@@ -65,7 +80,6 @@ and usage of using your command. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
@@ -90,13 +104,17 @@ to quickly create a Cobra application.`,
 		}
 		fmt.Println("Connected!")
 		userId, err := getUserId(manga.User{
-			Name:     args[0],
-			Password: args[1],
+			Name:     u,
+			Password: pw,
 		})
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("ID of user: %d\n", userId)
+		reviewId, err := postReview(userId, manga.Review{
+			Title:       args[0],
+			Description: args[1],
+		})
+		fmt.Printf("ID of review: %d\n", reviewId)
 	},
 }
 
@@ -112,7 +130,7 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// submitReviewCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	// rootCmd.Flags().StringVarP(&u, "username", "u", "", "Username (required if password is set)")
-	// rootCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
-	// rootCmd.MarkFlagsRequiredTogether("username", "password")
+	submitReviewCmd.Flags().StringVarP(&u, "username", "u", "", "Username (required if password is set)")
+	submitReviewCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
+	submitReviewCmd.MarkFlagsRequiredTogether("username", "password")
 }

@@ -34,6 +34,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var username, password string
+
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
@@ -102,6 +104,9 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(registerCmd)
+	rootCmd.Flags().StringVarP(&username, "username", "u", "", "Username (required if password is set)")
+	rootCmd.Flags().StringVarP(&password, "password", "p", "", "Password (required if username is set)")
+	rootCmd.MarkFlagsRequiredTogether("username", "password")
 
 	// Here you will define your flags and configuration settings.
 
@@ -111,5 +116,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// registerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	registerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

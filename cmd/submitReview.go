@@ -30,33 +30,34 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/bcrypt"
 )
 
-func showAll() ([]manga.Manga, error) {
-	var mangas []manga.Manga
-
-	rows, err := db.Query("SELECT * FROM manga")
-	if err != nil {
-		return nil, fmt.Errorf("%v", err)
-	}
-	defer rows.Close()
-	// Loop through rows, using Scan to assign column data to struct fields.
-	for rows.Next() {
-		var manga manga.Manga
-		if err := rows.Scan(&manga.ID, &manga.Title, &manga.Description); err != nil {
-			return nil, fmt.Errorf("showAll: %v", err)
-		}
-		mangas = append(mangas, manga)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%v", err)
-	}
-	return mangas, nil
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
 
-// listAllCmd represents the listAll command
-var listAllCmd = &cobra.Command{
-	Use:   "listAll",
+// getUserId returns the reviewer id
+func getUserId(user manga.User) (int64, error) {
+	var user_id int64
+	var password string
+	row := db.QueryRow("SELECT user_id, password from user WHERE name = ?", user.Name)
+	if err := row.Scan(&user_id, &password); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("submitReview %s: unknown user", user.Name)
+		}
+		return 0, fmt.Errorf("submitReview %s", user.Name)
+	}
+	if CheckPasswordHash(user.Password, password) {
+		return user_id, nil
+	}
+	return 0, fmt.Errorf("Wrong password")
+}
+
+// submitReviewCmd represents the submitReview command
+var submitReviewCmd = &cobra.Command{
+	Use:   "submitReview",
 	Short: "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -64,7 +65,8 @@ and usage of using your command. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(0),
+
+	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{
@@ -87,24 +89,30 @@ to quickly create a Cobra application.`,
 			log.Fatal(pingErr)
 		}
 		fmt.Println("Connected!")
-		mangas, err := showAll()
+		userId, err := getUserId(manga.User{
+			Name:     args[0],
+			Password: args[1],
+		})
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Mangas found: %v\n", mangas)
+		fmt.Printf("ID of user: %d\n", userId)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(listAllCmd)
+	rootCmd.AddCommand(submitReviewCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// listAllCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// submitReviewCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// listAllCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// submitReviewCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().StringVarP(&u, "username", "u", "", "Username (required if password is set)")
+	// rootCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
+	// rootCmd.MarkFlagsRequiredTogether("username", "password")
 }

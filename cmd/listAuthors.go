@@ -32,39 +32,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func showAll() ([]manga.Manga, error) {
-	var mangas []manga.Manga
+func showAuthors() ([]manga.Author, error) {
+	var authors []manga.Author
 
-	rows, err := db.Query("SELECT * FROM manga")
+	rows, err := db.Query("SELECT * FROM author")
 	if err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}
 	defer rows.Close()
-	// Loop through rows, using Scan to assign column data to struct fields.
+
 	for rows.Next() {
-		var manga manga.Manga
-		if err := rows.Scan(&manga.ID, &manga.Title, &manga.Description); err != nil {
+		var author manga.Author
+		if err := rows.Scan(&author.A_ID, &author.A_name); err != nil {
 			return nil, fmt.Errorf("showAll: %v", err)
 		}
-		mangas = append(mangas, manga)
+		authors = append(authors, author)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}
-	return mangas, nil
+	return authors, nil
 }
 
-// listAllCmd represents the listAll command
-var listAllCmd = &cobra.Command{
-	Use:   "listAll",
-	Short: "A brief description of your command",
+// listAuthorsCmd represents the listAuthors command
+var listAuthorsCmd = &cobra.Command{
+	Use:   "listAuthors",
+	Short: "List all the authors we have on the database",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{
@@ -87,24 +86,24 @@ to quickly create a Cobra application.`,
 			log.Fatal(pingErr)
 		}
 		fmt.Println("Connected!")
-		mangas, err := showAll()
+		authors, err := showAuthors()
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Mangas found: %v\n", mangas)
+		fmt.Printf("Authors found: %v\n", authors)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(listAllCmd)
+	rootCmd.AddCommand(listAuthorsCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// listAllCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// listAuthorsCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// listAllCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// listAuthorsCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

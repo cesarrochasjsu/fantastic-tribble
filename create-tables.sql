@@ -6,7 +6,15 @@ CREATE TABLE manga (
   manga_id         INT AUTO_INCREMENT NOT NULL,
   title      VARCHAR(128) NOT NULL,
   description     VARCHAR(255) NOT NULL,
-  PRIMARY KEY (`manga_id`)
+  PRIMARY KEY (manga_id, title)
+);
+
+CREATE TABLE review (
+  manga_id         INT AUTO_INCREMENT NOT NULL,
+  user_id    int, 
+  title      VARCHAR(128) NOT NULL,
+  description     VARCHAR(255) NOT NULL,
+  PRIMARY KEY (manga_id, title)
 );
 
 create table author
@@ -14,6 +22,15 @@ create table author
 	 a_name			varchar(20) not null, 
 	 primary key (A_ID)
 	);
+
+create table user
+(
+user_id INT AUTO_INCREMENT NOT NULL, 
+name varchar(20), 
+email varchar(120), 
+password varchar(60), 
+primary key(user_id)
+);
 
 INSERT INTO manga
   (title, description)
@@ -35,3 +52,5 @@ insert into author values (76543, 'Singh');
 insert into author values (76766, 'Crick');
 insert into author values (83821, 'Brandt');
 insert into author values (98345, 'Kim');
+
+insert into user (name, email, password) values ('john', 'john_doe@email.com', 'passwd');

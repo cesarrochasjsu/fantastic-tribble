@@ -25,46 +25,46 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/cesarrochasjsu/myapp/users"
+	"github.com/spf13/cobra/doc"
 	"log"
 	"os"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/bcrypt"
 )
 
-func showAll() ([]manga.Manga, error) {
-	var mangas []manga.Manga
-
-	rows, err := db.Query("SELECT * FROM manga")
-	if err != nil {
-		return nil, fmt.Errorf("%v", err)
-	}
-	defer rows.Close()
-	// Loop through rows, using Scan to assign column data to struct fields.
-	for rows.Next() {
-		var manga manga.Manga
-		if err := rows.Scan(&manga.ID, &manga.Title, &manga.Description); err != nil {
-			return nil, fmt.Errorf("showAll: %v", err)
-		}
-		mangas = append(mangas, manga)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%v", err)
-	}
-	return mangas, nil
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
 }
 
-// listAllCmd represents the listAll command
-var listAllCmd = &cobra.Command{
-	Use:   "listAll",
-	Short: "A brief description of your command",
+// addUser adds the specified User to the database,
+// returning the album ID of the new entry
+func addUser(user manga.User) (int64, error) {
+	hash, _ := HashPassword(user.Password) // ignore error for the sake of simplicity
+	result, err := db.Exec("INSERT INTO user (name, email, password) VALUES (?, ?, ?)", user.Name, user.Email, hash)
+	if err != nil {
+		return 0, fmt.Errorf("addUser: %v", err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("addUser: %v", err)
+	}
+	return id, nil
+}
+
+// registerCmd represents the register command
+var registerCmd = &cobra.Command{
+	Use:   "register",
+	Short: "Registers a user into the database",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(0),
+	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{
@@ -87,24 +87,29 @@ to quickly create a Cobra application.`,
 			log.Fatal(pingErr)
 		}
 		fmt.Println("Connected!")
-		mangas, err := showAll()
+		userId, err := addUser(manga.User{
+			Name:     args[0],
+			Email:    args[1],
+			Password: args[2],
+		})
+		err = doc.GenMarkdownTree(cmd, "/tmp")
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Mangas found: %v\n", mangas)
+		fmt.Printf("ID of added mangaum: %v\n", userId)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(listAllCmd)
+	rootCmd.AddCommand(registerCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// listAllCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// registerCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// listAllCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// registerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

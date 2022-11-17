@@ -24,3 +24,9 @@ type Review struct {
 	Title       string
 	Description string
 }
+
+type Requests struct {
+	Request_id  int64
+	Reviewer_id int64
+	title       string
+}

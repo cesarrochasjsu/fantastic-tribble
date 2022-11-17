@@ -4,6 +4,7 @@ use mangalist;
 
 CREATE TABLE manga (
   manga_id         INT AUTO_INCREMENT NOT NULL,
+
   title      VARCHAR(128) NOT NULL,
   description     VARCHAR(255) NOT NULL,
   PRIMARY KEY (manga_id)
@@ -16,6 +17,14 @@ reviewer_id INT AUTO_INCREMENT NOT NULL,
 user_id int,
 name varchar(20), 
 primary key(reviewer_id)
+);
+
+create table moderator
+(
+moderator_id INT AUTO_INCREMENT NOT NULL, 
+user_id int,
+moderator_email varchar(60) not null,
+primary key(moderator_id)
 );
 
 create table belong(

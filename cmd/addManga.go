@@ -25,16 +25,32 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/cesarrochasjsu/myapp/users"
-	"github.com/spf13/cobra/doc"
 	"log"
 	"os"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
+	// "golang.org/x/crypto/bcrypt"
 )
 
-// addManga adds the specified album to the database,
-// returning the album ID of the new entry
+func getModeratorId(user manga.User) (int64, error) {
+	var reviewer_id int64
+	var password string
+	row := db.QueryRow(`SELECT moderator_id, password
+				FROM user u, moderator m
+				WHERE m.moderator_email = ? and m.user_id = u.user_id`, user.Email)
+	if err := row.Scan(&reviewer_id, &password); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("getModeratorId %s: unknown user", user.Email)
+		}
+		return 0, fmt.Errorf("getModeratorId %s", user.Email)
+	}
+	if CheckPasswordHash(user.Password, password) {
+		return reviewer_id, nil
+	}
+	return 0, fmt.Errorf("Wrong password")
+}
+
 func addManga(manga manga.Manga) (int64, error) {
 	result, err := db.Exec("INSERT INTO manga (title, description) VALUES (?, ?)", manga.Title, manga.Description)
 	if err != nil {
@@ -47,19 +63,11 @@ func addManga(manga manga.Manga) (int64, error) {
 	return id, nil
 }
 
-var db *sql.DB
-
-// mangaCmd represents the manga command
-var mangaCmd = &cobra.Command{
-	Use:   "manga",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(2),
+// addMangaCmd represents the addManga command
+var addMangaCmd = &cobra.Command{
+	Use:   "addManga [title] [description]",
+	Short: "Adds a manga to the database",
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{
@@ -82,28 +90,39 @@ to quickly create a Cobra application.`,
 			log.Fatal(pingErr)
 		}
 		fmt.Println("Connected!")
+		userId, err := getModeratorId(manga.User{
+			Email:    u,
+			Password: pw,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 		mangaId, err := addManga(manga.Manga{
 			Title:       args[0],
 			Description: args[1],
 		})
-		err = doc.GenMarkdownTree(cmd, "/tmp")
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("ID of added mangaum: %v\n", mangaId)
+		fmt.Printf("%v added %v\n", userId, mangaId)
+
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(mangaCmd)
+	rootCmd.AddCommand(addMangaCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// mangaCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// addMangaCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// mangaCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// addMangaCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	addMangaCmd.Flags().StringVarP(&u, "moderator", "m", "", "Moderator Email (required if password is set)")
+	addMangaCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
+	addMangaCmd.MarkFlagsRequiredTogether("moderator", "password")
 }

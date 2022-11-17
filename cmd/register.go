@@ -34,7 +34,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var moderator bool
 var username, password string
+var db *sql.DB
 
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
@@ -42,7 +44,6 @@ func HashPassword(password string) (string, error) {
 }
 
 // addUser adds the specified User to the database,
-// returning the album ID of the new entry
 func addUser(user manga.User) (int64, error) {
 	hash, _ := HashPassword(user.Password) // ignore error for the sake of simplicity
 	result, err := db.Exec("INSERT INTO user (name, email, password) VALUES (?, ?, ?)", user.Name, user.Email, hash)
@@ -53,9 +54,16 @@ func addUser(user manga.User) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("addUser: %v", err)
 	}
-	reviewer_id, err := db.Exec("INSERT INTO reviewer (user_id, name) VALUES (?, ?)", id, user.Name)
-	if err != nil {
-		return 0, fmt.Errorf("add Reviewer: %d %v", reviewer_id, err)
+	if moderator {
+		reviewer_id, err := db.Exec("INSERT INTO moderator (user_id, moderator_email) VALUES (?, ?)", id, user.Email)
+		if err != nil {
+			return 0, fmt.Errorf("add Reviewer: %d %v", reviewer_id, err)
+		}
+	} else {
+		reviewer_id, err := db.Exec("INSERT INTO reviewer (user_id, name) VALUES (?, ?)", id, user.Name)
+		if err != nil {
+			return 0, fmt.Errorf("add Reviewer: %d %v", reviewer_id, err)
+		}
 	}
 	return id, nil
 }
@@ -112,4 +120,5 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	registerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	registerCmd.Flags().BoolVarP(&moderator, "moderator", "m", false, "Create a moderator")
 }

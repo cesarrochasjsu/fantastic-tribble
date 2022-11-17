@@ -35,14 +35,14 @@ import (
 func reviewByUser(name string) ([]manga.Review, error) {
 	var reviews []manga.Review
 
-	rows, err := db.Query(`SELECT user_id, manga_id, title, description
-FROM review join user using(user_id) WHERE name = ?`, name)
+	rows, err := db.Query(`SELECT reviewer_id, manga_id, title, description
+FROM review join reviewer using(reviewer_id) WHERE name = ?`, name)
 	if err != nil {
 		return nil, fmt.Errorf("reviewsByUser %q: %v", name, err)
 	}
 	for rows.Next() {
 		var review manga.Review
-		if err := rows.Scan(&review.Manga_id, &review.User_id, &review.Title, &review.Description); err != nil {
+		if err := rows.Scan(&review.Manga_id, &review.Reviewer_id, &review.Title, &review.Description); err != nil {
 			return nil, fmt.Errorf("showAll: %v", err)
 		}
 		reviews = append(reviews, review)
@@ -55,15 +55,9 @@ FROM review join user using(user_id) WHERE name = ?`, name)
 
 // reviewByCmd represents the reviewBy command
 var reviewByCmd = &cobra.Command{
-	Use:   "reviewBy",
+	Use:   "reviewBy [user]",
 	Short: "List the reviews from a user",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(1),
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{

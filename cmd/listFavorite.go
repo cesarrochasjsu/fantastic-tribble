@@ -25,46 +25,43 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/cesarrochasjsu/myapp/users"
-	"github.com/spf13/cobra/doc"
+	"github.com/go-sql-driver/mysql"
 	"log"
 	"os"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/bcrypt"
 )
 
-var username, password string
+func listFavorites(reviewer_id int64) ([]manga.Manga, error) {
+	var mangas []manga.Manga
 
-func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
+	rows, err := db.Query(`select m.manga_ID, title, description
+		from favorite join manga m using(manga_id)
+		where reviewer_id = ?;`, reviewer_id)
+
+	if err != nil {
+		return nil, fmt.Errorf("%v", err)
+	}
+	defer rows.Close()
+	// Loop through rows, using Scan to assign column data to struct fields.
+	for rows.Next() {
+		var manga manga.Manga
+		if err := rows.Scan(&manga.ID, &manga.Title, &manga.Description); err != nil {
+			return nil, fmt.Errorf("listFavorites: %v", err)
+		}
+		mangas = append(mangas, manga)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%v", err)
+	}
+	return mangas, nil
 }
 
-// addUser adds the specified User to the database,
-// returning the album ID of the new entry
-func addUser(user manga.User) (int64, error) {
-	hash, _ := HashPassword(user.Password) // ignore error for the sake of simplicity
-	result, err := db.Exec("INSERT INTO user (name, email, password) VALUES (?, ?, ?)", user.Name, user.Email, hash)
-	if err != nil {
-		return 0, fmt.Errorf("addUser: %v", err)
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("addUser: %v", err)
-	}
-	reviewer_id, err := db.Exec("INSERT INTO reviewer (user_id, name) VALUES (?, ?)", id, user.Name)
-	if err != nil {
-		return 0, fmt.Errorf("add Reviewer: %d %v", reviewer_id, err)
-	}
-	return id, nil
-}
-
-// registerCmd represents the register command
-var registerCmd = &cobra.Command{
-	Use:   "register [name] [email] [password]",
-	Short: "Registers a reviewer into the database",
-	Args:  cobra.ExactArgs(3),
+// listFavoriteCmd represents the listFavorite command
+var listFavoriteCmd = &cobra.Command{
+	Use:   "listFavorite",
+	Short: "List all the favorites of a given user",
+	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{
@@ -87,29 +84,34 @@ var registerCmd = &cobra.Command{
 			log.Fatal(pingErr)
 		}
 		fmt.Println("Connected!")
-		userId, err := addUser(manga.User{
-			Name:     args[0],
-			Email:    args[1],
-			Password: args[2],
+		userId, err := getReviewerId(manga.User{
+			Name:     u,
+			Password: pw,
 		})
-		err = doc.GenMarkdownTree(cmd, "/tmp")
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("ID of added mangaum: %v\n", userId)
+		mangas, err := listFavorites(userId)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("Mangas found: %v\n", mangas)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(registerCmd)
+	rootCmd.AddCommand(listFavoriteCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// registerCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// listFavoriteCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	registerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// listFavoriteCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	listFavoriteCmd.Flags().StringVarP(&u, "username", "u", "", "Username (required if password is set)")
+	listFavoriteCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
+	listFavoriteCmd.MarkFlagsRequiredTogether("username", "password")
 }

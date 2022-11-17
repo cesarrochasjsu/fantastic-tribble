@@ -40,26 +40,42 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-// getUserId returns the reviewer id
-func getUserId(user manga.User) (int64, error) {
-	var user_id int64
-	var password string
-	row := db.QueryRow("SELECT user_id, password from user WHERE name = ?", user.Name)
-	if err := row.Scan(&user_id, &password); err != nil {
+func getMangaId(title string) (int64, error) {
+	var manga_id int64
+	// Query for a value based on a single row.
+	if err := db.QueryRow("select manga_id from manga where title=?", title).Scan(&manga_id); err != nil {
 		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("submitReview %s: unknown user", user.Name)
+			return 0, fmt.Errorf("%s: unknown manga", title)
 		}
-		return 0, fmt.Errorf("submitReview %s", user.Name)
+		return 0, fmt.Errorf("getMangaId %s", title)
+	}
+	return manga_id, nil
+}
+
+// getReviewerId returns the reviewer id
+func getReviewerId(user manga.User) (int64, error) {
+	var reviewer_id int64
+	var password string
+	row := db.QueryRow(`SELECT reviewer_id, password from user u, reviewer r WHERE r.name = ? and r.user_id = u.user_id;`, user.Name)
+	if err := row.Scan(&reviewer_id, &password); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("getReviewerId %s: unknown user", user.Name)
+		}
+		return 0, fmt.Errorf("getReviewerId %s", user.Name)
 	}
 	if CheckPasswordHash(user.Password, password) {
-		return user_id, nil
+		return reviewer_id, nil
 	}
 	return 0, fmt.Errorf("Wrong password")
 }
 
-// getUserId returns the reviewer id
+// getReviewerId returns the reviewer id
 func postReview(userID int64, review manga.Review) (int64, error) {
-	result, err := db.Exec("INSERT INTO review (user_id, title, description) VALUES (?, ?, ?)", userID, review.Title, review.Description)
+	manga_id, err := getMangaId(review.Title)
+	if err != nil {
+		log.Fatal(err)
+	}
+	result, err := db.Exec("INSERT INTO review (reviewer_id, manga_id, title, description) VALUES (?, ?, ?, ?)", userID, manga_id, review.Title, review.Description)
 	if err != nil {
 		return 0, fmt.Errorf("postReview: %v", err)
 	}
@@ -72,15 +88,9 @@ func postReview(userID int64, review manga.Review) (int64, error) {
 
 // submitReviewCmd represents the submitReview command
 var submitReviewCmd = &cobra.Command{
-	Use:   "submitReview",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Args: cobra.ExactArgs(2),
+	Use:   "submitReview [title] [description]",
+	Short: "Adds a manga review to the database given the manga and user exist",
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{
@@ -103,7 +113,7 @@ to quickly create a Cobra application.`,
 			log.Fatal(pingErr)
 		}
 		fmt.Println("Connected!")
-		userId, err := getUserId(manga.User{
+		userId, err := getReviewerId(manga.User{
 			Name:     u,
 			Password: pw,
 		})
@@ -114,6 +124,9 @@ to quickly create a Cobra application.`,
 			Title:       args[0],
 			Description: args[1],
 		})
+		if err != nil {
+			log.Fatal(err)
+		}
 		fmt.Printf("ID of review: %d\n", reviewId)
 	},
 }

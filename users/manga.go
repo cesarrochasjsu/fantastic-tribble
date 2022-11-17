@@ -20,7 +20,7 @@ type User struct {
 
 type Review struct {
 	Manga_id    int64
-	User_id     int64
+	Reviewer_id int64
 	Title       string
 	Description string
 }

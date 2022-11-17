@@ -6,15 +6,52 @@ CREATE TABLE manga (
   manga_id         INT AUTO_INCREMENT NOT NULL,
   title      VARCHAR(128) NOT NULL,
   description     VARCHAR(255) NOT NULL,
-  PRIMARY KEY (manga_id, title)
+  PRIMARY KEY (manga_id)
 );
 
-CREATE TABLE review (
-  manga_id         INT AUTO_INCREMENT NOT NULL,
-  user_id    int, 
+
+create table reviewer
+(
+reviewer_id INT AUTO_INCREMENT NOT NULL, 
+user_id int,
+name varchar(20), 
+primary key(reviewer_id)
+);
+
+create table belong(
+ manga_id int,
+ G_ID int, 
+ primary key (manga_id, G_ID),
+ foreign key (manga_id) references manga(manga_id)
+ on delete cascade
+);
+
+create table request(
+  request_id INT AUTO_INCREMENT NOT NULL,
+  reviewer_id int not null,
+  title      VARCHAR(128) NOT NULL,
+  primary key (request_id)
+);
+
+create table favorite(
+ reviewer_id int,
+ manga_ID int, 
+ primary key (reviewer_id, manga_ID)
+);
+
+CREATE TABLE review(
+  review_id INT AUTO_INCREMENT NOT NULL,
+  reviewer_id    INT NOT NULL, 
+  manga_id int NOT NULL, 
   title      VARCHAR(128) NOT NULL,
   description     VARCHAR(255) NOT NULL,
-  PRIMARY KEY (manga_id, title)
+  PRIMARY KEY (review_id)
+);
+
+CREATE TABLE genres(
+  G_ID INT AUTO_INCREMENT NOT NULL, 
+  G_NAME varchar(20), 
+  primary key(G_ID)
 );
 
 create table author
@@ -29,15 +66,17 @@ user_id INT AUTO_INCREMENT NOT NULL,
 name varchar(20), 
 email varchar(120), 
 password varchar(60), 
-primary key(user_id)
+primary key(user_id, name)
 );
+
 
 INSERT INTO manga
   (title, description)
 VALUES
-  ('Bad Anime', 'This anime is bad'),
-  ('Good anime', 'This anime is good'),
-  ('Whatever anime', 'This anime is good'),
+  ('Bad Manga', 'This Manga is bad'),
+  ('Grand Blue', 'Acquired Taste'),
+  ('Good Manga', 'This Manga is good'),
+  ('Whatever Manga', 'This Manga is good'),
   ('Jeru', 'Gerry Mulligan');
 
 insert into author values (10101, 'Srinivasan');
@@ -54,3 +93,7 @@ insert into author values (83821, 'Brandt');
 insert into author values (98345, 'Kim');
 
 insert into user (name, email, password) values ('john', 'john_doe@email.com', 'passwd');
+
+insert into genres(g_name) values ('comedy'), ('alcoholism');
+insert into belong values (2, 1);
+insert into belong values (2, 2);

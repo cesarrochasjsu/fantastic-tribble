@@ -25,46 +25,26 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/cesarrochasjsu/myapp/users"
-	"github.com/spf13/cobra/doc"
+	"github.com/go-sql-driver/mysql"
 	"log"
 	"os"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/bcrypt"
 )
 
-var username, password string
-
-func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
+func request(reviewer_id int64, title string) error {
+	_, err := db.Exec("INSERT INTO request (reviewer_id, title) VALUES (?, ?)", reviewer_id, title)
+	if err != nil {
+		return fmt.Errorf("request: %v", err)
+	}
+	return nil
 }
 
-// addUser adds the specified User to the database,
-// returning the album ID of the new entry
-func addUser(user manga.User) (int64, error) {
-	hash, _ := HashPassword(user.Password) // ignore error for the sake of simplicity
-	result, err := db.Exec("INSERT INTO user (name, email, password) VALUES (?, ?, ?)", user.Name, user.Email, hash)
-	if err != nil {
-		return 0, fmt.Errorf("addUser: %v", err)
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("addUser: %v", err)
-	}
-	reviewer_id, err := db.Exec("INSERT INTO reviewer (user_id, name) VALUES (?, ?)", id, user.Name)
-	if err != nil {
-		return 0, fmt.Errorf("add Reviewer: %d %v", reviewer_id, err)
-	}
-	return id, nil
-}
-
-// registerCmd represents the register command
-var registerCmd = &cobra.Command{
-	Use:   "register [name] [email] [password]",
-	Short: "Registers a reviewer into the database",
-	Args:  cobra.ExactArgs(3),
+// requestCmd represents the request command
+var requestCmd = &cobra.Command{
+	Use:   "request [title]",
+	Short: "Requests for title to be added into database",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{
@@ -87,29 +67,35 @@ var registerCmd = &cobra.Command{
 			log.Fatal(pingErr)
 		}
 		fmt.Println("Connected!")
-		userId, err := addUser(manga.User{
-			Name:     args[0],
-			Email:    args[1],
-			Password: args[2],
+		reviwerId, err := getReviewerId(manga.User{
+			Name:     u,
+			Password: pw,
 		})
-		err = doc.GenMarkdownTree(cmd, "/tmp")
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("ID of added mangaum: %v\n", userId)
+		requestErr := request(reviwerId, args[0])
+		if err != nil {
+			log.Fatal(requestErr)
+		}
+		fmt.Printf("Request for %s successfully sent to be approved by moderator team\n", args[0])
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(registerCmd)
+	rootCmd.AddCommand(requestCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// registerCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// requestCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	registerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// requestCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	requestCmd.Flags().StringVarP(&u, "username", "u", "", "Username (required if password is set)")
+	requestCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
+	requestCmd.MarkFlagsRequiredTogether("username", "password")
 }

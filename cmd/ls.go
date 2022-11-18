@@ -32,8 +32,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var forumFlag, genreFlag, favoritesFlag, authorFlag, pendingFlag bool
+var forumFlag, genreFlag, favoritesFlag, authorFlag, reviewFlag, pendingFlag, commentFlag, postFlag bool
 var title string
+var articleId int
 
 // lsCmd represents the ls command
 var lsCmd = &cobra.Command{
@@ -56,19 +57,29 @@ var lsCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-
 		pingErr := db.Ping()
 		if pingErr != nil {
 			log.Fatal(pingErr)
 		}
 		fmt.Println("Connected!")
 
-		if title != "" {
+		if reviewFlag {
 			reviews, err := reviewsByTitle(title)
 			if err != nil {
 				log.Fatal(err)
 			}
 			fmt.Printf("Reviews for %s found: %v\n", title, reviews)
+		} else if commentFlag {
+			article, err := checkArticleId(manga.Post{ArticleId: int64(articleId)})
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("Comments for %v found\n", article)
+			comments, err := showComments(article)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("Comments: %v found\n", comments)
 		} else if authorFlag {
 			authors, err := showAuthors()
 			if err != nil {
@@ -94,7 +105,11 @@ var lsCmd = &cobra.Command{
 			}
 			fmt.Printf("Most Popular: %v\n", favorites)
 		} else if pendingFlag {
-
+			requests, err := showRequests()
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("Requests found: %v\n", requests)
 		} else {
 			mangas, err := showMangas()
 			if err != nil {
@@ -121,8 +136,57 @@ func init() {
 	lsCmd.Flags().BoolVarP(&forumFlag, "forums", "f", false, "list all forums")
 	lsCmd.Flags().BoolVarP(&genreFlag, "genres", "g", false, "list all genres")
 	lsCmd.Flags().BoolVarP(&favoritesFlag, "sort", "s", false, "list sorted by most favorited")
-	lsCmd.Flags().BoolVarP(&pendingFlag, "pending", "p", false, "list manga requests by reviewers")
+	lsCmd.Flags().BoolVarP(&pendingFlag, "requests", "R", false, "list manga requests by reviewers")
+	lsCmd.Flags().BoolVarP(&reviewFlag, "review", "r", false, "list reviews by user (requires title of manga -t)")
+	lsCmd.Flags().BoolVarP(&commentFlag, "comments", "c", false, "list comments (requires article_id -A)")
 	lsCmd.Flags().StringVarP(&title, "title", "t", "", "title of a manga")
+	lsCmd.Flags().IntVarP(&articleId, "ArticleId", "A", 0, "Id of an article")
+	lsCmd.MarkFlagsRequiredTogether("review", "title")
+	lsCmd.MarkFlagsRequiredTogether("comments", "ArticleId")
+	// lsCmd.Flags().BoolVarP(&)
+}
+
+func showRequests() ([]manga.Requests, error) {
+	var requests []manga.Requests
+
+	rows, err := db.Query(`select request_id, reviewer_id, title from request`)
+	if err != nil {
+		return nil, fmt.Errorf("reviewsByTitle: %v", err)
+	}
+	for rows.Next() {
+		var request manga.Requests
+		if err := rows.Scan(&request.Request_id, &request.Reviewer_id, &request.Title); err != nil {
+			return nil, fmt.Errorf("showAll: %v", err)
+		}
+		requests = append(requests, request)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%v", err)
+	}
+	return requests, nil
+}
+
+func showComments(post manga.Post) ([]manga.Comment, error) {
+	var comments []manga.Comment
+
+	rows, err := db.Query(`
+select forum_id, article_id, reviewer_id, content 
+from comment
+where article_id = ?;`, post.ArticleId)
+	if err != nil {
+		return nil, fmt.Errorf("reviewsByTitle %q: %v", title, err)
+	}
+	for rows.Next() {
+		var comment manga.Comment
+		if err := rows.Scan(&comment.ForumId, &comment.ArticleId, &comment.ReviewerId, &comment.Content); err != nil {
+			return nil, fmt.Errorf("showAll: %v", err)
+		}
+		comments = append(comments, comment)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%v", err)
+	}
+	return comments, nil
 }
 
 func reviewsByTitle(title string) ([]manga.Review, error) {

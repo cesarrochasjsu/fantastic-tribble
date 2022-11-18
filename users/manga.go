@@ -35,7 +35,7 @@ type Review struct {
 type Requests struct {
 	Request_id  int64
 	Reviewer_id int64
-	title       string
+	Title       string
 }
 
 type Post struct {

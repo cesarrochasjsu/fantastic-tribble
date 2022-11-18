@@ -13,7 +13,6 @@ all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
@@ -26,40 +25,51 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/cesarrochasjsu/myapp/users"
+	"github.com/go-sql-driver/mysql"
 	"log"
 	"os"
 	"strconv"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
-	// "golang.org/x/crypto/bcrypt"
 )
 
-func checkMangaId(id int64) (int64, error) {
-	var manga_id int64
+func checkForumId(forum manga.Forum) (int64, error) {
+	var forumId int64
 	// Query for a value based on a single row.
-	if err := db.QueryRow("select manga_id from manga where manga_id=?", id).Scan(&manga_id); err != nil {
+	if err := db.QueryRow("select forum_id from forum where forum_id = ?;", forum.Forum_id).Scan(&forumId); err != nil {
 		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("%s: unknown manga", id)
+			return 0, fmt.Errorf("%s: unknown manga", forumId)
 		}
-		return 0, fmt.Errorf("getMangaId %s", id)
+		return 0, fmt.Errorf("getMangaId %s", forumId)
 	}
-	return manga_id, nil
+	return forumId, nil
 }
 
-func markFavorite(reviewerId, mangaId int64) ([]int64, error) {
-	_, err := db.Exec("INSERT INTO favorite (reviewer_id, manga_id) VALUES (?, ?)", reviewerId, mangaId)
+func insertPost(post manga.Post) (manga.Post, error) {
+	_, err := db.Exec("INSERT INTO post (article_id, forum_id, reviewer_id) VALUES (?, ?, ?)", post.ArticleId, post.ForumId, post.ReviewerId)
 	if err != nil {
-		return []int64{0, 0}, fmt.Errorf("markFavorite: %v", err)
+		return manga.Post{}, fmt.Errorf("insertPost: %v %v", post, err)
 	}
-	return []int64{reviewerId, mangaId}, nil
+	return post, nil
 }
 
-// favoriteCmd represents the favorite command
-var favoriteCmd = &cobra.Command{
-	Use:   "favorite [manga_id]",
-	Short: "Favorite a manga",
-	Args:  cobra.ExactArgs(1),
+func postNewArticle(post manga.Article) (int64, error) {
+	result, err := db.Exec("INSERT INTO forum_article (forum_id, title, content) VALUES (?, ?, ?)", post.ForumId, post.Title, post.Content)
+	if err != nil {
+		return 0, fmt.Errorf("postNew: %d %v", post.ForumId, err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("addAlbum: %v", err)
+	}
+	return id, nil
+}
+
+// postNewCmd represents the postNew command
+var postNewCmd = &cobra.Command{
+	Use:   "postNew [ForumId][title] [content]",
+	Short: "Inserts a post into the database",
+	Args:  cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{
@@ -86,37 +96,56 @@ var favoriteCmd = &cobra.Command{
 			Name:     u,
 			Password: pw,
 		})
-		id, err := strconv.Atoi(args[0])
 		if err != nil {
 			log.Fatal(err)
 		}
-		verified_id, err := checkMangaId(int64(id))
+		fmt.Printf("ID of %s exists: %v\n", u, reviewerId)
+		forumId, err := strconv.Atoi(args[0])
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Reviewer number: %d\n", verified_id)
-		markFavorite(reviewerId, int64(id))
+		verifiedForumId, err := checkForumId(manga.Forum{
+			Forum_id: int64(forumId),
+		})
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Reviewer number: %s Marked Favorite by %s\n", args[0], u)
+		fmt.Printf("ID of forum exists: %v\n", verifiedForumId)
+		postId, err := postNewArticle(manga.Article{
+			ForumId: verifiedForumId,
+			Title:   args[1],
+			Content: args[2],
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("ID of new post: %v\n", postId)
+		newPost, err := insertPost(manga.Post{
+			ArticleId:  postId,
+			ForumId:    verifiedForumId,
+			ReviewerId: reviewerId,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("Successful Post: %v\n", newPost)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(favoriteCmd)
+	rootCmd.AddCommand(postNewCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// favoriteCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// postNewCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// favoriteCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	favoriteCmd.Flags().StringVarP(&u, "username", "u", "", "Username (required if password is set)")
-	favoriteCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
-	createCmd.MarkFlagRequired("username")
-	favoriteCmd.MarkFlagsRequiredTogether("username", "password")
+	// postNewCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	postNewCmd.Flags().StringVarP(&u, "username", "u", "", "Username (required if password is set)")
+	postNewCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
+	postNewCmd.MarkFlagsRequiredTogether("username", "password")
 }

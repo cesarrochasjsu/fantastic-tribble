@@ -11,6 +11,7 @@ CREATE TABLE manga (
 );
 
 
+
 create table reviewer
 (
 reviewer_id INT AUTO_INCREMENT NOT NULL, 
@@ -48,6 +49,37 @@ create table favorite(
  primary key (reviewer_id, manga_ID)
 );
 
+create table forum_article(
+  article_id INT AUTO_INCREMENT NOT NULL,
+  forum_id int, 
+  title      VARCHAR(128) NOT NULL,
+  content     VARCHAR(255) NOT NULL,
+  primary key(article_id)
+);
+
+create table post(
+  article_id int, 
+  forum_id int, 
+  reviewer_id int,
+  primary key(article_id, forum_id, reviewer_id)
+);
+
+create table forum(
+  forum_id INT AUTO_INCREMENT NOT NULL,
+  title varchar(128),
+  description     VARCHAR(255) NOT NULL,
+  primary key(forum_id)
+);
+
+create table comment(
+  article_id INT AUTO_INCREMENT NOT NULL,
+  forum_id int not null, 
+  reviewer_id int not null, 
+  text     VARCHAR(255) NOT NULL,
+  primary key(article_id, forum_id, reviewer_id)
+);
+
+
 CREATE TABLE review(
   review_id INT AUTO_INCREMENT NOT NULL,
   reviewer_id    INT NOT NULL, 
@@ -60,13 +92,13 @@ CREATE TABLE review(
 CREATE TABLE genres(
   G_ID INT AUTO_INCREMENT NOT NULL, 
   G_NAME varchar(20), 
-  primary key(G_ID)
+  primary key(G_ID, G_NAME)
 );
 
 create table author
 	(A_ID			INT AUTO_INCREMENT NOT NULL,
 	 a_name			varchar(20) not null, 
-	 primary key (A_ID)
+	 primary key (A_ID, a_name)
 	);
 
 create table user

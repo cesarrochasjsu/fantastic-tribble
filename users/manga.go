@@ -18,7 +18,14 @@ type User struct {
 	Password string
 }
 
+type Article struct {
+	ForumId int64
+	Title   string
+	Content string
+}
+
 type Review struct {
+	ReviewId    int64
 	Manga_id    int64
 	Reviewer_id int64
 	Title       string
@@ -29,4 +36,26 @@ type Requests struct {
 	Request_id  int64
 	Reviewer_id int64
 	title       string
+}
+
+type Post struct {
+	ArticleId  int64
+	ForumId    int64
+	ReviewerId int64
+}
+
+type Forum struct {
+	Forum_id    int64
+	Title       string
+	Description string
+}
+
+type Favorite struct {
+	Title string
+	Count int
+}
+
+type Genre struct {
+	GId   int64
+	GName string
 }

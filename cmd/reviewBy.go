@@ -35,14 +35,14 @@ import (
 func reviewByUser(name string) ([]manga.Review, error) {
 	var reviews []manga.Review
 
-	rows, err := db.Query(`SELECT reviewer_id, manga_id, title, description
+	rows, err := db.Query(`SELECT review_id, reviewer_id, manga_id, title, description
 FROM review join reviewer using(reviewer_id) WHERE name = ?`, name)
 	if err != nil {
 		return nil, fmt.Errorf("reviewsByUser %q: %v", name, err)
 	}
 	for rows.Next() {
 		var review manga.Review
-		if err := rows.Scan(&review.Manga_id, &review.Reviewer_id, &review.Title, &review.Description); err != nil {
+		if err := rows.Scan(&review.ReviewId, &review.Manga_id, &review.Reviewer_id, &review.Title, &review.Description); err != nil {
 			return nil, fmt.Errorf("showAll: %v", err)
 		}
 		reviews = append(reviews, review)

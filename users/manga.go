@@ -59,3 +59,10 @@ type Genre struct {
 	GId   int64
 	GName string
 }
+
+type Comment struct {
+	ForumId    int64
+	ArticleId  int64
+	ReviewerId int64
+	Content    string
+}

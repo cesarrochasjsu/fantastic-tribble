@@ -72,11 +72,12 @@ create table forum(
 );
 
 create table comment(
-  article_id INT AUTO_INCREMENT NOT NULL,
+  comment_id INT AUTO_INCREMENT NOT NULL,
   forum_id int not null, 
+  article_id int not null, 
   reviewer_id int not null, 
-  text     VARCHAR(255) NOT NULL,
-  primary key(article_id, forum_id, reviewer_id)
+  content     VARCHAR(255) NOT NULL,
+  primary key(comment_id, article_id, forum_id, reviewer_id)
 );
 
 

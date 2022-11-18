@@ -33,43 +33,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func checkForumId(forum manga.Forum) (int64, error) {
-	var forumId int64
+func checkArticleId(post manga.Post) (manga.Post, error) {
+	var temp manga.Post
 	// Query for a value based on a single row.
-	if err := db.QueryRow("select forum_id from forum where forum_id = ?;", forum.Forum_id).Scan(&forumId); err != nil {
+	if err := db.QueryRow("select article_id, forum_id, reviewer_id from post where article_id = ?;", post.ArticleId).Scan(&temp.ArticleId, &temp.ForumId, &temp.ReviewerId); err != nil {
 		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("%s: unknown manga", forumId)
+			return manga.Post{}, fmt.Errorf("%v: unknown article", post)
 		}
-		return 0, fmt.Errorf("getMangaId %s", forumId)
+		return manga.Post{}, fmt.Errorf("checkArticleId %v", post)
 	}
-	return forumId, nil
+	return temp, nil
 }
 
-func insertPost(post manga.Post) (manga.Post, error) {
-	_, err := db.Exec("INSERT INTO post (article_id, forum_id, reviewer_id) VALUES (?, ?, ?)", post.ArticleId, post.ForumId, post.ReviewerId)
+func postNewComment(comment manga.Comment) (int64, error) {
+	result, err := db.Exec("INSERT INTO comment (forum_id, article_id, reviewer_id, content) VALUES (?, ?, ?, ?)", comment.ForumId, comment.ArticleId, comment.ReviewerId, comment.Content)
 	if err != nil {
-		return manga.Post{}, fmt.Errorf("insertPost: %v %v", post, err)
-	}
-	return post, nil
-}
-
-func postNewArticle(post manga.Article) (int64, error) {
-	result, err := db.Exec("INSERT INTO forum_article (forum_id, title, content) VALUES (?, ?, ?)", post.ForumId, post.Title, post.Content)
-	if err != nil {
-		return 0, fmt.Errorf("postNew: %d %v", post.ForumId, err)
+		return 0, fmt.Errorf("postNewComment: %d %v", comment.ForumId, err)
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
-		return 0, fmt.Errorf("addAlbum: %v", err)
+		return 0, fmt.Errorf("postNewComment: %v", err)
 	}
 	return id, nil
 }
 
-// postNewCmd represents the postNew command
-var postNewCmd = &cobra.Command{
-	Use:   "postNew [ForumId] [title] [content]",
-	Short: "Inserts a post into the database",
-	Args:  cobra.ExactArgs(3),
+// commentCmd represents the comment command
+var commentCmd = &cobra.Command{
+	Use:   "comment [article_id] [content]",
+	Short: "Writes a comment into the article",
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		// Capture connection properties.
 		cfg := mysql.Config{
@@ -100,52 +92,43 @@ var postNewCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		fmt.Printf("ID of %s exists: %v\n", u, reviewerId)
-		forumId, err := strconv.Atoi(args[0])
+		articleId, err := strconv.Atoi(args[0])
 		if err != nil {
 			log.Fatal(err)
 		}
-		verifiedForumId, err := checkForumId(manga.Forum{
-			Forum_id: int64(forumId),
+		newPost, err := checkArticleId(manga.Post{
+			ArticleId: int64(articleId),
 		})
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("ID of forum exists: %v\n", verifiedForumId)
-		postId, err := postNewArticle(manga.Article{
-			ForumId: verifiedForumId,
-			Title:   args[1],
-			Content: args[2],
+		fmt.Printf("ID of article exists: %v\n", newPost)
+		commentId, err := postNewComment(manga.Comment{
+			ArticleId:  newPost.ArticleId,
+			ForumId:    newPost.ForumId,
+			ReviewerId: newPost.ReviewerId,
+			Content:    args[1],
 		})
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("ID of new post: %v\n", postId)
-		newPost, err := insertPost(manga.Post{
-			ArticleId:  postId,
-			ForumId:    verifiedForumId,
-			ReviewerId: reviewerId,
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Printf("Successful Post: %v\n", newPost)
+		fmt.Printf("ID of new comment: %v\n", commentId)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(postNewCmd)
+	rootCmd.AddCommand(commentCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// postNewCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// commentCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// postNewCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
-	postNewCmd.Flags().StringVarP(&u, "username", "u", "", "Username (required if password is set)")
-	postNewCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
-	postNewCmd.MarkFlagsRequiredTogether("username", "password")
+	// commentCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	commentCmd.Flags().StringVarP(&u, "username", "u", "", "Username (required if password is set)")
+	commentCmd.Flags().StringVarP(&pw, "password", "p", "", "Password (required if username is set)")
+	commentCmd.MarkFlagsRequiredTogether("username", "password")
 }
